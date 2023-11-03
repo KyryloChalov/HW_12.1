@@ -1,0 +1,188 @@
+from collections import UserDict
+from constants import RED, GRAY, CYAN, MAGENTA, RESET,LEN_OF_NAME_FIELD
+from datetime import datetime
+import os.path
+import pickle
+
+
+class Field:
+    
+    def __init__(self, value) -> None:
+        self.__value = None
+        self.value = value
+
+    @property
+    def value(self):
+        return self.__value
+
+    @value.setter
+    def value(self, new_value):
+        self.__value = new_value
+        
+    def __str__(self) -> str:
+        return str(self.value)
+    
+    def __repr__(self) -> str:
+        return str(self)
+
+
+class Name(Field):
+    
+    def __init__(self, value: str) -> None:
+        super().__init__(str(value).title())
+
+
+class Phone(Field):
+        
+    def __eq__(self, __value: object) -> bool:
+        return self.value == __value.value
+    
+    @property
+    def value(self):
+        return self.__value
+
+    @value.setter
+    def value(self, phone: str):
+        
+        new_phone = str(phone).strip()
+        for char in '+( )-.':
+            new_phone = new_phone.replace(char, "")
+        if len(new_phone) >= 9 and new_phone.isdigit():
+            new_phone = "+380" + new_phone[-9:]
+        else:
+            raise ValueError(f"{RED}{phone} - incorrect phone number{RESET}")        
+        self.__value = new_phone
+
+
+class BirthDay(Field):
+    
+    @property
+    def value(self):
+        return self.__value
+        
+    @value.setter
+    def value(self, value):
+        self.__value = datetime.strptime(value, '%d-%m-%Y').date()
+        # print(self.__value)
+        
+
+class Record:
+
+    def __init__(self, name: Name, phone: Phone | None = None, birthday:BirthDay | None = None) -> None:
+        self.name = Name(name)  
+        phone = Phone(phone) if phone else None
+        self.phones = [phone] if phone else []
+        self.birthday = birthday if birthday else None
+
+    def add_birthday(self, birthday: BirthDay):
+        self.birthday = birthday
+        return f"the date of birth for contact {self.name} is set to {self.birthday} \n\t{self}"
+
+    def add_phone(self, phone: Phone) -> str:
+        phone = Phone(phone)
+        if phone in self.phones:
+            return f"{RED}number {phone} is already present in {self.name}'s contact list {RESET} \n\t{self}"
+        self.phones.append(phone)
+        return f"phone number {phone} has been added to {self.name}'s contact list  \n\t{self}"
+ 
+    def days_to_birthday(self, birthday: BirthDay):
+        today_date = datetime.today().date()
+        birth_date = datetime.strptime(birthday, "%d-%m-%Y")
+        bd_next = datetime(day=birth_date.day, month=birth_date.month, year=today_date.year)
+        age = today_date.year - birth_date.year
+        if today_date > bd_next.date():
+            bd_next = datetime(day=birth_date.day, month=birth_date.month, year=today_date.year + 1)
+            age += 1
+        days_until = (bd_next.date() - today_date).days
+        return days_until, age
+           
+    def edit_phone(self, old_phone: Phone, new_phone: Phone) -> str:
+        old_phone = Phone(old_phone)
+        new_phone = Phone(new_phone)
+        if old_phone == new_phone:
+            return f"{RED}you are trying to replace the phone number {old_phone} with the same one {new_phone}{RESET} \n\t{self}"
+        if old_phone in self.phones:
+            self.phones[self.phones.index(old_phone)] = new_phone
+            return f"phone number {old_phone} has been successfully changed to {new_phone} for contact {self.name} \n\t{self}"
+        return f"{RED}phone number {old_phone} is not among the contact numbers of {self.name}{RESET} \n\t{self}"
+    
+    def find_phone(self, phone: Phone):
+        phone = Phone(phone)
+        for ph in self.phones:
+            if ph == phone:
+                return f"phone number {phone} found among {self.name}'s contact numbers"
+        return f"{RED}phone number {phone} not found {RESET}"
+
+    def remove_phone(self, phone: Phone) -> str:
+        phone = Phone(phone)
+        if phone in self.phones:
+            self.phones.remove(phone)
+            return f"phone number {phone} has been removed from {self.name}'s contact list \n\t{self}"
+        return f"{RED}phone number {phone} is not among the contact numbers of {self.name} {RESET}\n\t{self}"
+    
+    def seek_phone(self, phone: Phone):
+        for p in self.phones:
+            ph = p.value[:]
+            if str(phone) in str(ph):
+                return True
+            else:
+                return False
+
+    def __str__(self) -> str:
+        blanks = " " * (LEN_OF_NAME_FIELD - len(str(self.name)))
+        if self.birthday: 
+            if int(self.days_to_birthday(self.birthday)[0]) == 0:
+                return f"{self.name} {blanks}: {', '.join(str(p) for p in self.phones)} {MAGENTA} birthday: {RESET} {self.birthday} {MAGENTA}(today is {self.days_to_birthday(self.birthday)[1]}th birthday){RESET}"
+            elif self.days_to_birthday(self.birthday)[0] <= 7:
+                return f"{self.name} {blanks}: {', '.join(str(p) for p in self.phones)} {CYAN} birthday: {RESET} {self.birthday} {CYAN}({self.days_to_birthday(self.birthday)[0]} days until the {self.days_to_birthday(self.birthday)[1]}th birthday){RESET}"
+            else:
+                return f"{self.name} {blanks}: {', '.join(str(p) for p in self.phones)} {GRAY} birthday: {RESET} {self.birthday} {GRAY}({self.days_to_birthday(self.birthday)[0]} days until the {self.days_to_birthday(self.birthday)[1]}th birthday){RESET}"
+        else: 
+            return f"{self.name} {blanks}: {', '.join(str(p) for p in self.phones)}"
+            
+    def __repr__(self) -> str:
+        return str(self)
+
+
+class AddressBook(UserDict):
+
+    def add_record(self, record: Record):
+        self.data[record.name.value] = record
+        return f"contact {record.name} has been successfully added \n\t{record}"        
+        
+    def delete_record(self, name: Name):
+        name = Name(name)
+        for key, item in self.data.items():
+            if str(key) == str(name):
+                del self.data[key]
+                return f"contact {name} has been successfully deleted"
+        return f"{RED}contact {name} not found{RESET}"    
+
+    def find_name(self, name: Name):
+        name = Name(name)
+        for key, item in self.data.items():
+            if str(key) == str(name):
+                return f"contact {name} found \n\t{item}"
+        return f"{RED}contact {name} not found{RESET}"
+    
+    def iterator(self, n=None):
+        counter = 0
+        while counter < len(self):
+            yield list(self.values())[counter: counter + n]
+            counter += n
+            
+    def read_contacts_from_file(self, fn):
+        if os.path.exists(fn):
+            with open(fn, "rb") as fh:
+                self = pickle.load(fh)
+            self.data = dict(sorted(self.items()))
+        print(f"{GRAY}the contact book has been successfully restored{RESET}")
+        return self
+
+    def write_contacts_to_file(self, fn):
+        with open(fn, "wb") as fh:
+            pickle.dump(self, fh)
+        return f"{GRAY}the contact book has been saved successfully{RESET}"
+
+    def __str__(self):
+        return "\n".join([str(r) for r in self.data.values()])
