@@ -1,4 +1,4 @@
-TITLE = "\tPhoneBook\tversion 5.8.12"
+TITLE = "\tPhoneBook\tversion 5.9.2"
 FILENAME = 'addressbook.bin'
 
 BLACK = "\033[30m"

@@ -1,4 +1,4 @@
-from classes import Name, Phone, Record, AddressBook
+from classes import Name, Phone, Record, AddressBook, BirthDay, PhoneError, BDayError
 from constants import TITLE, FILENAME, RED, BLUE, YELLOW, CYAN, GRAY, WHITE, RESET
 
 
@@ -13,6 +13,12 @@ def user_error(func):
             return f"{RED}not enough params{RESET}\n\tFormat: '<command> <name> <args>'\n\tUse 'help' for information"
         except KeyError:
             return f"{RED}Unknown name {args[0]}. Try another or use help{RESET}"
+        except ValueError:
+            return f"{RED}time data does not match format 'dd-mm-YYYY' (dd<=31, mm<=12){RESET}"
+        except BDayError:
+            return f"{RED}time data does not match format 'dd-mm-YYYY' (dd<=31, mm<=12) {RESET}"
+        except PhoneError:
+            return f"{RED}the phone number must contains only digits, format: '0671234567' or '+380671234567'{RESET}"
     return inner
 
 def get_record(name, book):
@@ -49,7 +55,7 @@ def add_contact(*args):
 
     name = Name(args[0])
     if is_exist_record(name):
-        return f"{RED}contact {str(name)} already exist{RESET}\n\t{str(get(name))}\n\tUse 'add_phones' or 'change' command to add or change the phone"
+        return f"{RED}contact {str(name)} already exist{RESET}\n\t{str(get(name))}\n\tUse 'add phone' or 'change' command to add or change the phone"
     
     book.add_record(Record(name))
     

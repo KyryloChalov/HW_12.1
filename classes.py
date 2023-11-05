@@ -4,6 +4,12 @@ from datetime import datetime
 import os.path
 import pickle
 
+class PhoneError(Exception):
+    ...
+
+class BDayError(Exception):
+    ...
+
 
 class Field:
     
@@ -50,7 +56,7 @@ class Phone(Field):
         if len(new_phone) >= 9 and new_phone.isdigit():
             new_phone = "+380" + new_phone[-9:]
         else:
-            raise ValueError(f"{RED}{phone} - incorrect phone number{RESET}")        
+            raise PhoneError(f"{RED}{phone} - incorrect phone number{RESET}")        
         self.__value = new_phone
 
 
@@ -62,21 +68,34 @@ class BirthDay(Field):
         
     @value.setter
     def value(self, value):
-        self.__value = datetime.strptime(value, '%d-%m-%Y').date()
-        # print(self.__value)
+        if isinstance(value, datetime):
+            self.__value = value
+        else:
+            try:
+                self.__value = datetime.strptime(str(value), "%Y-%m-%d").date()
+            except ValueError:
+                self.__value = datetime.strptime(str(value), "%d-%m-%Y").date()
+            else:
+                raise BDayError(f"{RED}{self.__value} - incorrect date{RESET}")      
+
+    def __str__(self) -> str:
+        return str(self.value)
         
 
 class Record:
 
     def __init__(self, name: Name, phone: Phone | None = None, birthday:BirthDay | None = None) -> None:
         self.name = Name(name)  
-        phone = Phone(phone) if phone else None
-        self.phones = [phone] if phone else []
-        self.birthday = birthday if birthday else None
+        self.phones = [Phone(phone)] if phone else []
+        self.birthday = BirthDay(birthday) if birthday else None
 
+    def datetime_to_str(self, date):
+        date_to_str = str(date)
+        return date_to_str if all([date_to_str[2] == "-", date_to_str[5] == "-"]) else date_to_str[8:] + "-" + date_to_str[5:7] + "-" + date_to_str[0:4]
+        
     def add_birthday(self, birthday: BirthDay):
-        self.birthday = birthday
-        return f"the date of birth for contact {self.name} is set to {self.birthday} \n\t{self}"
+        self.birthday = BirthDay(birthday)
+        return f"the date of birth for contact {self.name} is set to {self.datetime_to_str(self.birthday)} \n\t{self}"
 
     def add_phone(self, phone: Phone) -> str:
         phone = Phone(phone)
@@ -87,7 +106,10 @@ class Record:
  
     def days_to_birthday(self, birthday: BirthDay):
         today_date = datetime.today().date()
-        birth_date = datetime.strptime(birthday, "%d-%m-%Y")
+        try:
+            birth_date = datetime.strptime(str(birthday), "%Y-%m-%d").date()
+        except ValueError:
+            birth_date = datetime.strptime(str(birthday), "%d-%m-%Y").date()
         bd_next = datetime(day=birth_date.day, month=birth_date.month, year=today_date.year)
         age = today_date.year - birth_date.year
         if today_date > bd_next.date():
@@ -131,12 +153,13 @@ class Record:
     def __str__(self) -> str:
         blanks = " " * (LEN_OF_NAME_FIELD - len(str(self.name)))
         if self.birthday: 
+            
             if int(self.days_to_birthday(self.birthday)[0]) == 0:
-                return f"{self.name} {blanks}: {', '.join(str(p) for p in self.phones)} {MAGENTA} birthday: {RESET} {self.birthday} {MAGENTA}(today is {self.days_to_birthday(self.birthday)[1]}th birthday){RESET}"
+                return f"{self.name} {blanks}: {', '.join(str(p) for p in self.phones)} {MAGENTA} birthday: {RESET} {self.datetime_to_str(self.birthday)} {MAGENTA}(today is {self.days_to_birthday(self.birthday)[1]}th birthday){RESET}"
             elif self.days_to_birthday(self.birthday)[0] <= 7:
-                return f"{self.name} {blanks}: {', '.join(str(p) for p in self.phones)} {CYAN} birthday: {RESET} {self.birthday} {CYAN}({self.days_to_birthday(self.birthday)[0]} days until the {self.days_to_birthday(self.birthday)[1]}th birthday){RESET}"
+                return f"{self.name} {blanks}: {', '.join(str(p) for p in self.phones)} {CYAN} birthday: {RESET} {self.datetime_to_str(self.birthday)} {CYAN}({self.days_to_birthday(self.birthday)[0]} days until the {self.days_to_birthday(self.birthday)[1]}th birthday){RESET}"
             else:
-                return f"{self.name} {blanks}: {', '.join(str(p) for p in self.phones)} {GRAY} birthday: {RESET} {self.birthday} {GRAY}({self.days_to_birthday(self.birthday)[0]} days until the {self.days_to_birthday(self.birthday)[1]}th birthday){RESET}"
+                return f"{self.name} {blanks}: {', '.join(str(p) for p in self.phones)} {GRAY} birthday: {RESET} {self.datetime_to_str(self.birthday)} {GRAY}({self.days_to_birthday(self.birthday)[0]} days until the {self.days_to_birthday(self.birthday)[1]}th birthday){RESET}"
         else: 
             return f"{self.name} {blanks}: {', '.join(str(p) for p in self.phones)}"
             
