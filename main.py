@@ -19,57 +19,47 @@ def user_error(func):
             return f"{RED}time data does not match format 'dd-mm-YYYY' (dd<=31, mm<=12) {RESET}"
         except PhoneError:
             return f"{RED}the phone number must contains only digits, format: '0671234567' or '+380671234567'{RESET}"
+        except AttributeError:
+            return f"{RED}phone number {args[1]} is not among the contact numbers of {args[0]} {RESET}"
+
     return inner
 
-def get_record(name, book):
+
+def get_record_or_error(name, book, return_error=False):
     name_rec = Name(name)
     rec = book.get(str(name_rec))
     if not rec:
-        return f"{RED}contact {WHITE}{name}{RED} not found in address book{RESET}"
+        error_message = (
+            f"{RED}contact {WHITE}{name}{RED} not found in address book{RESET}"
+        )
+        if return_error:
+            return error_message
+        else:
+            return rec
     return rec
 
-def is_exist_record(value):
-    for n in book:
-        if str(n) == str(value):
-            return True
-    return False
-
-def get(name) -> str:
-    for key, val in book.items():
-        if str(key) == str(name):
-            return str(val)
-        
 
 @user_error
 def add_birthday(*args):
-    
-    rec = get_record(args[0], book)
-    return rec if isinstance(rec, str) else rec.add_birthday((args[1]))
+    return get_record_or_error(args[0], book).add_birthday((args[1]))
 
 
 @user_error
 def add_contact(*args):
-    
-    if not args:
-        return f"{RED}not enough params{RESET}\n\tFormat: 'add_contact <name{GRAY}(required){RESET}> <phones{GRAY}(optional){RESET}> <birthday{GRAY}(optional){RESET}>'\n\tUse 'help' for information"
+    if get_record_or_error(args[0], book):
+        return f"{RED}contact {Name(args[0])} already exist{RESET}\n\t{get_record_or_error(args[0], book)}\n\tUse 'add_phone' or 'change' command to add or change the phone"
+    book.add_record(Record(args[0]))
 
-    name = Name(args[0])
-    if is_exist_record(name):
-        return f"{RED}contact {str(name)} already exist{RESET}\n\t{str(get(name))}\n\tUse 'add phone' or 'change' command to add or change the phone"
-    
-    book.add_record(Record(name))
-    
     if len(args) > 1:
-        if args[-1][2] == "-" and args[-1][5] == "-":
+        if all([args[-1][2] == args[-1][5] == "-", len(args[-1]) == 10]):
             add_birthday(args[0], args[-1])
-            args = args[1:-1]
-        else:
-            args = args[1:]
+            args = args[:-1]
+        add_phones(args[0], *args[1:])
 
-        add_phones(name, *args)
-        
-    return f"contact {name} has been successfully added \n\t{str(get(name))}"        
+    return f"contact {Name(args[0])} has been successfully added \n\t{get_record_or_error(args[0],book)}"
 
+
+@user_error
 def add_few_phones(rec, *args):
     result = ""
     for phone in args:
@@ -79,74 +69,51 @@ def add_few_phones(rec, *args):
         )
     return result
 
+
 @user_error
 def add_phones(*args):
-    
-    rec = get_record(args[0], book)
-    return rec if isinstance(rec, str) else add_few_phones(rec, *args[1:]) + f"\t{rec}"
+    rec = get_record_or_error(args[0], book)
+    return add_few_phones(rec, *args[1:]) + f"\t{rec}"
 
 
 @user_error
 def change_name(*args):
-    
-    rec = get_record(args[0], book)
+    rec = get_record_or_error(args[0], book)
     if isinstance(rec, str):
         return rec
 
     add_contact(args[1])
-    rec_new = get_record(args[1], book)
+    rec_new = get_record_or_error(args[1], book)
     if isinstance(rec_new, str):
         return rec_new
-    
+
     add_phones(args[1], *rec.phones)
-        
+
     add_birthday(args[1], rec.birthday)
-    
+
     delete_record(args[0])
-    return (
-        f"the name of the contact {args[0]} has been changed to {args[1]} \n\t{rec_new}"
-    )
+
+    return f"the name of the contact {Name(args[0])} has been changed to {Name(args[1])} \n\t{rec_new}"
 
 
 @user_error
 def change_phone(*args):
-    
-    rec = get_record(args[0], book)
-    return rec if isinstance(rec, str) else rec.edit_phone(Phone(args[1]), Phone(args[2]))
+    return get_record_or_error(args[0], book).edit_phone(Phone(args[1]), Phone(args[2]))
 
 
 @user_error
 def del_phone(*args):
-    
-    rec = get_record(args[0], book)
-    return rec if isinstance(rec, str) else rec.remove_phone(Phone(args[1]))
+    return get_record_or_error(args[0], book).remove_phone(Phone(args[1]))
 
 
 @user_error
 def delete_record(*args):
-    
-    rec = get_record(args[0], book)
-    return rec if isinstance(rec, str) else book.delete_record(args[0])
+    return book.delete_record(args[0])
 
 
 @user_error
 def name_find(*args):
-    
-    rec = get_record(args[0], book)
-    return rec if isinstance(rec, str) else book.find_name(args[0])
-
-
-def show_all(*args):
-    pages = int(args[0]) if args else len(book.data)
-    print(f"  === Address book ===")
-    count = 0
-    for _ in book.iterator(pages):
-        for item in _:
-            print(item)
-            count += 1
-        if count < len(book):
-            input(f"  Press Enter for next page: ")
-    return "  --- End of List ---"
+    return book.find_name(args[0])
 
 
 def search(*args):
@@ -164,6 +131,19 @@ def search(*args):
         return f"data found for your request '{seek}': \n{result[:-1]}"
     else:
         return f"{RED}nothing was found for your request '{seek}'{RESET}"
+
+
+def show_all(*args):
+    pages = int(args[0]) if args else len(book.data)
+    print(f"  === Address book ===")
+    count = 0
+    for _ in book.iterator(pages):
+        for item in _:
+            print(item)
+            count += 1
+        if count < len(book):
+            input(f"  Press Enter for next page: ")
+    return "  --- End of List ---"
 
 
 def help_page(*args):
