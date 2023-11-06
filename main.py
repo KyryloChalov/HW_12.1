@@ -78,22 +78,7 @@ def add_phones(*args):
 
 @user_error
 def change_name(*args):
-    rec = get_record_or_error(args[0], book)
-    if isinstance(rec, str):
-        return rec
-
-    add_contact(args[1])
-    rec_new = get_record_or_error(args[1], book)
-    if isinstance(rec_new, str):
-        return rec_new
-
-    add_phones(args[1], *rec.phones)
-
-    add_birthday(args[1], rec.birthday)
-
-    delete_record(args[0])
-
-    return f"the name of the contact {Name(args[0])} has been changed to {Name(args[1])} \n\t{rec_new}"
+    return book.change_name((args[0]), args[1])
 
 
 @user_error
@@ -220,7 +205,7 @@ def unknown(*args):
 COMMANDS = {
     add_contact: ("add_record", "add", "add_contact", "+"),
     add_phones: ("add_phone", "phone_add"),
-    change_phone: ("change_phone", "change_phone", "edit_phone"),
+    change_phone: ("change_phone", "phone_change", "edit_phone"),
     del_phone: ("del_phone", "delete_phone"),
     delete_record: ("delete_record", "delete", "del"),
     add_birthday: ("add_birthday", "add_bd", "change_birthday", "change_bd"),
